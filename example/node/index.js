@@ -1,0 +1,1 @@
+var frontEndUtils = require('../../dist/front-end-utils')
