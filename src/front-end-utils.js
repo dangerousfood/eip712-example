@@ -1,5 +1,7 @@
 import env from '../env.json'
 const Web3 = require("web3")
+const Contract = require('web3-eth-contract');
+var BN = Web3.utils.BN;
 const ethers = require('ethers');
 import bentoBoxV1 from './abi/bentoBoxV1.json'
 
@@ -20,53 +22,73 @@ const isEthEnabled = (window) => {
     return false;
 }
 
-const signMasterContractApproval = (web3, account, masterContract, approved, nonce, masterContractManager, chainId) => {
-    const DOMAIN_SEPARATOR_SIGNATURE_HASH = web3.utils.keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)")
-    const APPROVAL_SIGNATURE_HASH = web3.utils.keccak256("SetMasterContractApproval(string warning,address user,address masterContract,bool approved,uint256 nonce)")
-
-    const DOMAIN_SEPARATOR = web3.utils.keccak256(DOMAIN_SEPARATOR_SIGNATURE_HASH, BENTOBOXV2, chainId, masterContractManager);
-    let approval = web3.utils.keccak256(
-                APPROVAL_SIGNATURE_HASH,
-                approved ? APPROVE : REVOKE,
-                account,
-                masterContract,
-                approved,
-                nonce
-    )
-
-    console.log(approval)
-
-    let digest = web3.utils.keccak256(
-        EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-        DOMAIN_SEPARATOR,
-        approval
-    )
-
-    console.log(digest)
-
-    return web3.eth.personal.sign(web3.utils.fromUtf8(digest), account)
-}
-
-const parseSignature = (signature) => {
-    let web3 = new Web3()
-    let r = web3.utils.hexToBytes(signature.substr(0, 66))
-    let s = web3.utils.hexToBytes('0x' + signature.substr(66, 64))
-    let v = web3.utils.hexToNumber('0x' + signature.substr(130, 2))
-
-    return { r: r, s: s, v: v }
-}
-
 // Ropsten procedure
 // frontEndUtils.isEthEnabled(window)
-// frontEndUtils.setMasterContractApproval(window.web3, "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B", true, 6, "0xB5891167796722331b7ea7824F036b3Bdcb4531C", 3)
+// frontEndUtils.setMasterContractApproval(window.web3, "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B", true, 0, "0xB5891167796722331b7ea7824F036b3Bdcb4531C", 3)
 const setMasterContractApproval = async (web3, masterContract, approved, nonce, masterContractManager, chainId) => {
     let account = await web3.eth.getAccounts().then( addresses => addresses[0] )
-    let masterContractManagerInstance = new ethers.Contract( masterContractManager , bentoBoxV1 )
-    let signature = await signMasterContractApproval(web3, account, masterContract, approved, nonce, masterContractManager, chainId)
+    let masterContractManagerInstance = new web3.eth.Contract( bentoBoxV1, masterContractManager )
+
+    //bytes32 DOMAIN_SEPARATOR_SIGNATURE_HASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
+    const EIP712Domain = [
+        { name: "name", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+    ]
+
+    const domain = {
+        name: BENTOBOXV2,
+        chainId: chainId,
+        verifyingContract: masterContractManager
+    };
     
-    let sig = parseSignature(signature)
+    //bytes32 APPROVAL_SIGNATURE_HASH = keccak256("SetMasterContractApproval(string warning,address user,address masterContract,bool approved,uint256 nonce)");
+    const SetMasterContractApproval = [
+        { name: "warning", type: "string" },
+        { name: "user", type: "address" },
+        { name: "masterContract", type: "address" },
+        { name: "approved", type: "bool" },
+        { name: "uint256", type: "nonce" },
+    ]
+
+    let warning = approved ? APPROVE : REVOKE
     
-    return masterContractManagerInstance.setMasterContractApproval(account, masterContract, approved, nonce, sig.v, sig.r, sig.s)
+    nonce = new BN(nonce)
+    const message = {
+        warning: warning,
+        user: account,
+        masterContract: masterContract,
+        approved: approved,
+        nonce: nonce
+    };
+
+    const data = JSON.stringify({
+        types: {
+            EIP712Domain,
+            SetMasterContractApproval,
+        },
+        domain,
+        primaryType: "SetMasterContractApproval",
+        message
+    });
+    
+    console.log(data)
+
+    return web3.currentProvider
+    .send('eth_signTypedData_v4', [account, data])
+    .then((result) => {
+        const signature = result.result.substring(2);
+        const r = "0x" + signature.substring(0, 64);
+        const s = "0x" + signature.substring(64, 128);
+        const v = parseInt(signature.substring(128, 130), 16);    // The signature is now comprised of r, s, and v.
+
+        console.log("details", account, masterContract, approved, v, r, s)
+        return { r: r, s: s, v: v }
+    })
+    .then(signature => {
+        console.log(signature)
+        masterContractManagerInstance.methods.setMasterContractApproval(account, masterContract, approved, signature.v, signature.r, signature.s).send({from: account})
+    })
 }
 
-export default { isEthEnabled, signMasterContractApproval,  setMasterContractApproval }
+export default { isEthEnabled,  setMasterContractApproval }

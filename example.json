@@ -1,0 +1,53 @@
+{
+    "types": {
+        "EIP712Domain": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "chainId",
+                "type": "uint256"
+            },
+            {
+                "name": "verifyingContract",
+                "type": "address"
+            }
+        ],
+        "SetMasterContractApproval": [
+            {
+                "name": "warning",
+                "type": "string"
+            },
+            {
+                "name": "user",
+                "type": "address"
+            },
+            {
+                "name": "masterContract",
+                "type": "address"
+            },
+            {
+                "name": "approved",
+                "type": "bool"
+            },
+            {
+                "name": "uint256",
+                "type": "nonce"
+            }
+        ]
+    },
+    "domain": {
+        "name": "BentoBox V2",
+        "chainId": 3,
+        "verifyingContract": "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
+    },
+    "primaryType": "SetMasterContractApproval",
+    "message": {
+        "warning": "Give FULL access to funds in (and approved to) BentoBox?",
+        "user": "0x6Be02d1d3665660d22FF9624b7BE0551ee1Ac91b",
+        "masterContract": "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B",
+        "approved": true,
+        "nonce": 0
+    }
+}
