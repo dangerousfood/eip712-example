@@ -3,6 +3,9 @@ const Web3 = require("web3")
 const Contract = require('web3-eth-contract');
 var BN = Web3.utils.BN;
 const ethers = require('ethers');
+import { BigNumber, utils } from 'ethers'
+import { splitSignature } from 'ethers/lib/utils'
+
 import bentoBoxV1 from './abi/bentoBoxV1.json'
 
 const EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01"
@@ -24,10 +27,19 @@ const isEthEnabled = (window) => {
 
 // Ropsten procedure
 // frontEndUtils.isEthEnabled(window)
-// frontEndUtils.setMasterContractApproval(window.web3, "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B", true, 0, "0xB5891167796722331b7ea7824F036b3Bdcb4531C", 3)
-const setMasterContractApproval = async (web3, masterContract, approved, nonce, masterContractManager, chainId) => {
+// frontEndUtils.setMasterContractApproval(window.web3, "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B", true, "0xB5891167796722331b7ea7824F036b3Bdcb4531C")
+const setMasterContractApproval = async (web3, masterContract, approved, masterContractManager) => {
     let account = await web3.eth.getAccounts().then( addresses => addresses[0] )
+    account = web3.utils.toChecksumAddress(account)
+    masterContract = web3.utils.toChecksumAddress(masterContract)
+    masterContractManager = web3.utils.toChecksumAddress(masterContractManager)
+
     let masterContractManagerInstance = new web3.eth.Contract( bentoBoxV1, masterContractManager )
+    let chainId = web3.currentProvider.networkVersion
+    console.log({chainId: chainId})
+    let nonce = await masterContractManagerInstance.methods.nonces(account).call()
+    // nonce = parseInt(nonce)
+    // console.log(nonce)
 
     //bytes32 DOMAIN_SEPARATOR_SIGNATURE_HASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
     const EIP712Domain = [
@@ -38,7 +50,7 @@ const setMasterContractApproval = async (web3, masterContract, approved, nonce, 
 
     const domain = {
         name: BENTOBOXV2,
-        chainId: chainId,
+        chainId: 3,
         verifyingContract: masterContractManager
     };
     
@@ -48,18 +60,18 @@ const setMasterContractApproval = async (web3, masterContract, approved, nonce, 
         { name: "user", type: "address" },
         { name: "masterContract", type: "address" },
         { name: "approved", type: "bool" },
-        { name: "uint256", type: "nonce" },
+        { name: "nonce", type: "uint256" },
     ]
 
     let warning = approved ? APPROVE : REVOKE
     
-    nonce = new BN(nonce)
+    nonce = BigNumber.from(nonce)
     const message = {
         warning: warning,
         user: account,
         masterContract: masterContract,
         approved: approved,
-        nonce: nonce
+        nonce: nonce.toHexString()
     };
 
     const data = JSON.stringify({
@@ -76,17 +88,21 @@ const setMasterContractApproval = async (web3, masterContract, approved, nonce, 
 
     return web3.currentProvider
     .send('eth_signTypedData_v4', [account, data])
-    .then((result) => {
-        const signature = result.result.substring(2);
-        const r = "0x" + signature.substring(0, 64);
-        const s = "0x" + signature.substring(64, 128);
-        const v = parseInt(signature.substring(128, 130), 16);    // The signature is now comprised of r, s, and v.
+    // .then((result) => {
+    //     const signature = result.result.substring(2);
+    //     const r = "0x" + signature.substring(0, 64);
+    //     const s = "0x" + signature.substring(64, 128);
+    //     const v = parseInt(signature.substring(128, 130), 16);    // The signature is now comprised of r, s, and v.
 
-        console.log("details", account, masterContract, approved, v, r, s)
-        return { r: r, s: s, v: v }
+    //     return { r: r, s: s, v: v }
+    // })
+    .then(signature => {
+        console.log(signature)
+        return splitSignature(signature.result)
     })
     .then(signature => {
         console.log(signature)
+        console.log({account: account, masterContract:masterContract, approved: approved})
         masterContractManagerInstance.methods.setMasterContractApproval(account, masterContract, approved, signature.v, signature.r, signature.s).send({from: account})
     })
 }

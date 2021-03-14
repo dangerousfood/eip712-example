@@ -32,22 +32,22 @@
                 "type": "bool"
             },
             {
-                "name": "uint256",
-                "type": "nonce"
+                "name": "nonce",
+                "type": "uint256"
             }
         ]
     },
     "domain": {
         "name": "BentoBox V2",
-        "chainId": 3,
-        "verifyingContract": "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
+        "chainId": "3",
+        "verifyingContract": "0xb5891167796722331b7ea7824f036b3bdcb4531c"
     },
     "primaryType": "SetMasterContractApproval",
     "message": {
         "warning": "Give FULL access to funds in (and approved to) BentoBox?",
-        "user": "0x6Be02d1d3665660d22FF9624b7BE0551ee1Ac91b",
-        "masterContract": "0x1Ec0eECed89D8c4840cBC0Dd554F83A5Da6a1a2B",
+        "user": "0x971a892ed736184d6446c013165d12f33b0995c0",
+        "masterContract": "0x009e9cfad18132d9fb258984196191bdb6d58cff",
         "approved": true,
-        "nonce": 0
+        "nonce": "0"
     }
 }
